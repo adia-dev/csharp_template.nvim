@@ -42,24 +42,37 @@ use {
 
 ## Configuration
 
-`setup()` is optional if you only want the user commands. Call it to enable default keymaps.
+`setup()` is optional — the user commands (`:CsharpClass`, etc.) work without it. No keymaps are registered by default; you must pass them explicitly.
 
 ```lua
 require("csharp_template").setup({
-  -- Pass keymaps = false to disable all default keymaps.
-  -- Or provide a custom list:
   keymaps = {
-    { lhs = "<leader>cn", fn = "insert_namespace" },
-    { lhs = "<leader>cc", fn = "insert_class" },
-    { lhs = "<leader>cr", fn = "insert_record" },
-    { lhs = "<leader>cs", fn = "insert_struct" },
-    { lhs = "<leader>ci", fn = "insert_interface" },
-    { lhs = "<leader>ce", fn = "insert_enum" },
+    { lhs = "<leader>cn", fn = "insert_namespace", desc = "C#: insert namespace" },
+    { lhs = "<leader>cc", fn = "insert_class",     desc = "C#: insert class" },
+    { lhs = "<leader>cr", fn = "insert_record",    desc = "C#: insert record" },
+    { lhs = "<leader>cs", fn = "insert_struct",    desc = "C#: insert struct" },
+    { lhs = "<leader>ci", fn = "insert_interface", desc = "C#: insert interface" },
+    { lhs = "<leader>ce", fn = "insert_enum",      desc = "C#: insert enum" },
   },
 })
 ```
 
-Keymaps are only bound for `filetype=cs` buffers.
+Keymaps are bound buffer-locally on `FileType=cs`. With lazy.nvim the idiomatic approach is to skip `setup()` entirely and use the `keys` spec for lazy-loading:</p>
+
+```lua
+{
+  dir = "~/Repositories/csharp_template",
+  lazy = true,
+  keys = {
+    { "<leader>cc", function() require("csharp_template").insert_class() end,     desc = "C#: insert class" },
+    { "<leader>cr", function() require("csharp_template").insert_record() end,    desc = "C#: insert record" },
+    { "<leader>cs", function() require("csharp_template").insert_struct() end,    desc = "C#: insert struct" },
+    { "<leader>ci", function() require("csharp_template").insert_interface() end, desc = "C#: insert interface" },
+    { "<leader>ce", function() require("csharp_template").insert_enum() end,      desc = "C#: insert enum" },
+    { "<leader>cn", function() require("csharp_template").insert_namespace() end, desc = "C#: insert namespace" },
+  },
+}
+```
 
 ## Usage
 

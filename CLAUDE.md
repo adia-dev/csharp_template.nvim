@@ -33,29 +33,22 @@ plugin/
 
 ## Installing in Neovim (lazy.nvim)
 
+No keymaps are registered by default — `setup()` only registers keymaps when `opts.keymaps` is explicitly provided. The idiomatic lazy.nvim approach (used in this repo's own config) is to skip `setup()` entirely and let lazy handle loading via its `keys` spec:
+
 ```lua
 {
   dir = "~/Repositories/csharp_template",
-  ft = "cs",
-  config = function()
-    require("csharp_template").setup({
-      -- keymaps = false to disable defaults
-      -- keymaps = { { lhs = "<leader>cc", fn = "insert_class" }, … }
-    })
-  end,
+  lazy = true,
+  keys = {
+    { "<leader>cn", function() require("csharp_template").insert_namespace() end, desc = "C#: insert namespace" },
+    { "<leader>cc", function() require("csharp_template").insert_class() end,     desc = "C#: insert class" },
+    { "<leader>cr", function() require("csharp_template").insert_record() end,    desc = "C#: insert record" },
+    { "<leader>cs", function() require("csharp_template").insert_struct() end,    desc = "C#: insert struct" },
+    { "<leader>ci", function() require("csharp_template").insert_interface() end, desc = "C#: insert interface" },
+    { "<leader>ce", function() require("csharp_template").insert_enum() end,      desc = "C#: insert enum" },
+  },
 }
 ```
-
-Default keymaps (cs filetype only):
-
-| Key | Action |
-|-----|--------|
-| `<leader>cn` | Insert namespace |
-| `<leader>cc` | Insert class |
-| `<leader>cr` | Insert record |
-| `<leader>cs` | Insert struct |
-| `<leader>ci` | Insert interface |
-| `<leader>ce` | Insert enum |
 
 User commands are always available: `:CsharpClass`, `:CsharpRecord`, `:CsharpStruct`, `:CsharpInterface`, `:CsharpEnum`, `:CsharpNamespace`.
 

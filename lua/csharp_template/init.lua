@@ -4,44 +4,31 @@ local templates = require("csharp_template.templates")
 
 local M = {}
 
--- setup(opts) — call from your plugin manager config.
+-- setup(opts) — optional, only needed if you want plugin-managed keymaps.
 --
--- opts.keymaps: table or false
---   Set to false to skip default keymaps entirely.
---   Each entry: { lhs = "<leader>cc", fn = "insert_class" }
---   Default keymaps are only bound for .cs files.
---
--- Default keymaps (filetype=cs only):
---   <leader>cn  → insert_namespace
---   <leader>cc  → insert_class
---   <leader>cr  → insert_record
---   <leader>cs  → insert_struct
---   <leader>ci  → insert_interface
---   <leader>ce  → insert_enum
+-- opts.keymaps: list of { lhs, fn, desc? } entries — no default list.
+--   fn is the name of a public method on this module (e.g. "insert_class").
+--   Keymaps are bound buffer-locally on FileType=cs.
+--   Omitting opts.keymaps (or calling setup with no args) registers nothing.
 M.setup = function(opts)
 	opts = opts or {}
 
-	if opts.keymaps == false then
+	if not opts.keymaps or #opts.keymaps == 0 then
 		return
 	end
-
-	local keymaps = opts.keymaps or {
-		{ lhs = "<leader>cn", fn = "insert_namespace" },
-		{ lhs = "<leader>cc", fn = "insert_class" },
-		{ lhs = "<leader>cr", fn = "insert_record" },
-		{ lhs = "<leader>cs", fn = "insert_struct" },
-		{ lhs = "<leader>ci", fn = "insert_interface" },
-		{ lhs = "<leader>ce", fn = "insert_enum" },
-	}
 
 	vim.api.nvim_create_autocmd("FileType", {
 		pattern = "cs",
 		group = vim.api.nvim_create_augroup("csharp_template_keymaps", { clear = true }),
 		callback = function(ev)
-			for _, km in ipairs(keymaps) do
+			for _, km in ipairs(opts.keymaps) do
 				local fn = M[km.fn]
 				if fn then
-					vim.keymap.set("n", km.lhs, fn, { buffer = ev.buf, silent = true, desc = km.fn })
+					vim.keymap.set("n", km.lhs, fn, {
+						buffer = ev.buf,
+						silent = true,
+						desc = km.desc or km.fn,
+					})
 				end
 			end
 		end,
