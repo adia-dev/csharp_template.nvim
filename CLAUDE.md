@@ -4,44 +4,83 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Neovim plugin (Lua) that automates C# boilerplate insertion. It inspects the nearest `.csproj` file to derive the correct namespace and generates file-scoped namespace declarations and `internal sealed class` stubs.
+A Neovim plugin (Lua) that inserts C# boilerplate — namespace, class, record, struct, interface, enum — with an interactive tabstop/choice system so the user can Tab through visibility, modifier, and type-keyword fields and cycle options with `<C-n>`/`<C-p>`.
 
-## Plugin architecture
+## Module layout
 
-Single public module at `lua/csharp_template/init.lua` that returns a table `M` with two public functions:
-
-- `M.insert_namespace()` — walks up the directory tree to find the nearest `.csproj`, extracts `<RootNamespace>` (or falls back to the project file name), builds a dotted namespace from the relative path, and prepends `namespace <ns>;` to the current buffer if none exists.
-- `M.insert_internal_sealed_class()` — inserts an `internal sealed class <FileName> { }` block after the namespace declaration (or at the top of the buffer), then positions the cursor inside the braces in insert mode.
-
-All helper functions are module-local. The public API surface is intentionally minimal.
+```
+lua/csharp_template/
+  init.lua        Public API + setup(opts) with default keymaps
+  namespace.lua   .csproj discovery, root-namespace extraction, buffer insertion
+  engine.lua      Tabstop session: extmark tracking, key handlers, highlights
+  templates.lua   Node-list definitions for each C# type
+plugin/
+  csharp_template.lua   User commands (:CsharpClass, :CsharpRecord, …)
+```
 
 ## Key design decisions
 
-- Uses **file-scoped namespaces** (`namespace Foo.Bar;` with a semicolon) — the modern C# style introduced in C# 10.
-- Classes default to `internal sealed` — the correct default for non-public types in .NET.
-- Uses `vim.uv` (libuv) for file I/O instead of `io.*` to stay non-blocking and consistent with Neovim internals.
-- `vim.fs.relpath` builds the sub-namespace from the file's directory relative to the project root.
+**engine.lua — how the session works**
+- Template nodes are `{type="text"|"choice"|"input", …}`. A "choice" node has a `choices` list; an "input" node has a free-text `default`.
+- `engine.insert(nodes, insert_row)` builds the text, inserts it at `insert_row+1` (0-indexed), then places one extmark per tabstop (`right_gravity=false`) so marks survive edits to earlier lines.
+- Buffer-local keymaps for Tab/S-Tab/C-n/C-p/Esc are installed on session start and removed (with original map restored) on session end.
+- Highlights: `CsharpTemplateActive` (links to `Visual`) for the current stop, `CsharpTemplateInactive` (links to `Comment`) for the rest.
 
-## Installing / loading in Neovim
+**init.lua — prepare_buffer**
+- Before inserting a template, `prepare_buffer` auto-inserts the file-scoped namespace (if a `.csproj` is reachable and none exists yet), then computes the 0-indexed insertion row (after the namespace line, skipping any blank lines that already follow it).
 
-Typical lazy.nvim setup:
+**Templates use file-scoped namespace style** (`namespace Foo.Bar;`) and default to `internal` visibility — matching modern C# conventions.
+
+## Installing in Neovim (lazy.nvim)
 
 ```lua
 {
   dir = "~/Repositories/csharp_template",
+  ft = "cs",
   config = function()
-    local ct = require("csharp_template")
-    vim.keymap.set("n", "<leader>cn", ct.insert_namespace, { desc = "Insert C# namespace" })
-    vim.keymap.set("n", "<leader>cc", ct.insert_internal_sealed_class, { desc = "Insert C# class" })
+    require("csharp_template").setup({
+      -- keymaps = false to disable defaults
+      -- keymaps = { { lhs = "<leader>cc", fn = "insert_class" }, … }
+    })
   end,
 }
 ```
 
+Default keymaps (cs filetype only):
+
+| Key | Action |
+|-----|--------|
+| `<leader>cn` | Insert namespace |
+| `<leader>cc` | Insert class |
+| `<leader>cr` | Insert record |
+| `<leader>cs` | Insert struct |
+| `<leader>ci` | Insert interface |
+| `<leader>ce` | Insert enum |
+
+User commands are always available: `:CsharpClass`, `:CsharpRecord`, `:CsharpStruct`, `:CsharpInterface`, `:CsharpEnum`, `:CsharpNamespace`.
+
+## Session key bindings (active while inserting a template)
+
+| Key | Action |
+|-----|--------|
+| `<Tab>` | Next tabstop (exits session after last) |
+| `<S-Tab>` | Previous tabstop |
+| `<C-n>` | Cycle choice forward at current stop |
+| `<C-p>` | Cycle choice backward at current stop |
+| `<Esc>` | Exit session immediately |
+
+## Adding a new template
+
+1. Add a node list to `templates.lua` (follow the same `id`-ordered pattern).
+2. Add `M.insert_<name>()` in `init.lua` calling `insert_template(templates.<name>)`.
+3. Add a command entry in `plugin/csharp_template.lua`.
+4. Optionally add a default keymap entry in the `setup()` defaults table in `init.lua`.
+
 ## Testing
 
-There is no automated test suite yet. Testing is done by sourcing the plugin inside a live Neovim session pointed at a real C# project tree with `.csproj` files.
+No automated test suite. Test by loading the plugin in a live Neovim session pointed at a directory that has a `.csproj` file.
 
-If plenary.nvim tests are added under `tests/`, run them with:
+If plenary.nvim tests are added under `tests/`:
 
 ```sh
 nvim --headless -c "PlenaryBustedDirectory tests/ { minimal_init = 'tests/minimal_init.lua' }" -c "qa"

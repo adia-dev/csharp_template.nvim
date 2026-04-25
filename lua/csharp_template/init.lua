@@ -4,7 +4,49 @@ local templates = require("csharp_template.templates")
 
 local M = {}
 
-M.setup = function(_opts) end
+-- setup(opts) — call from your plugin manager config.
+--
+-- opts.keymaps: table or false
+--   Set to false to skip default keymaps entirely.
+--   Each entry: { lhs = "<leader>cc", fn = "insert_class" }
+--   Default keymaps are only bound for .cs files.
+--
+-- Default keymaps (filetype=cs only):
+--   <leader>cn  → insert_namespace
+--   <leader>cc  → insert_class
+--   <leader>cr  → insert_record
+--   <leader>cs  → insert_struct
+--   <leader>ci  → insert_interface
+--   <leader>ce  → insert_enum
+M.setup = function(opts)
+	opts = opts or {}
+
+	if opts.keymaps == false then
+		return
+	end
+
+	local keymaps = opts.keymaps or {
+		{ lhs = "<leader>cn", fn = "insert_namespace" },
+		{ lhs = "<leader>cc", fn = "insert_class" },
+		{ lhs = "<leader>cr", fn = "insert_record" },
+		{ lhs = "<leader>cs", fn = "insert_struct" },
+		{ lhs = "<leader>ci", fn = "insert_interface" },
+		{ lhs = "<leader>ce", fn = "insert_enum" },
+	}
+
+	vim.api.nvim_create_autocmd("FileType", {
+		pattern = "cs",
+		group = vim.api.nvim_create_augroup("csharp_template_keymaps", { clear = true }),
+		callback = function(ev)
+			for _, km in ipairs(keymaps) do
+				local fn = M[km.fn]
+				if fn then
+					vim.keymap.set("n", km.lhs, fn, { buffer = ev.buf, silent = true, desc = km.fn })
+				end
+			end
+		end,
+	})
+end
 
 -- ─── Namespace ───────────────────────────────────────────────────────────────
 
