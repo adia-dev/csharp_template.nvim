@@ -1,8 +1,12 @@
 local ns_mod = require("csharp_template.namespace")
+local engine = require("csharp_template.engine")
+local templates = require("csharp_template.templates")
 
 local M = {}
 
 M.setup = function(_opts) end
+
+-- ─── Namespace ───────────────────────────────────────────────────────────────
 
 function M.insert_namespace()
 	local bufnr = vim.api.nvim_get_current_buf()
@@ -30,68 +34,62 @@ function M.insert_namespace()
 	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, new_lines)
 end
 
--- Legacy: kept for backward compatibility.
-function M.insert_internal_sealed_class()
+-- ─── Template insertion helpers ──────────────────────────────────────────────
+
+-- Ensures the namespace is present, then returns the 0-indexed row after
+-- which the template should be inserted (the namespace line, or -1 for top).
+local function prepare_buffer(bufnr, bufname)
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+	if bufname ~= "" then
+		local ns = ns_mod.build(bufname)
+		if ns then
+			local new_lines, changed = ns_mod.insert_into_lines(lines, ns)
+			if changed then
+				vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, new_lines)
+				lines = new_lines
+			end
+		end
+	end
+
+	-- Find the namespace line to insert after it; fall back to last line.
+	local ns_line = ns_mod.find_line(lines)
+	if ns_line then
+		-- ns_line is 1-indexed; engine expects 0-indexed insert_row.
+		-- We want to insert after the namespace line AND after any blank line
+		-- that may already follow it.
+		local insert_after = ns_line -- 0-indexed = ns_line (1-indexed) - 1 + 1 = ns_line
+		-- Skip existing blank lines right after the namespace.
+		while insert_after <= #lines and (lines[insert_after] or "") == "" do
+			insert_after = insert_after + 1
+		end
+		-- insert_after is now the 1-indexed first non-blank line after ns,
+		-- so the 0-indexed row we insert AFTER is insert_after - 2.
+		return insert_after - 2
+	end
+
+	return #lines - 1 -- append at end (0-indexed last line)
+end
+
+-- Generic template runner.
+local function insert_template(tpl_nodes)
 	local bufnr = vim.api.nvim_get_current_buf()
 	local bufname = vim.api.nvim_buf_get_name(bufnr)
+	local insert_row = prepare_buffer(bufnr, bufname)
+	engine.insert(tpl_nodes, insert_row)
+end
 
-	if bufname == "" then
-		vim.notify("Current buffer has no file name", vim.log.levels.WARN)
-		return
-	end
+-- ─── Public template functions ───────────────────────────────────────────────
 
-	local type_name = vim.fn.fnamemodify(bufname, ":t:r")
-	if type_name == "" then
-		vim.notify("Could not determine class name from file name", vim.log.levels.WARN)
-		return
-	end
+function M.insert_class()     insert_template(templates.class)     end
+function M.insert_record()    insert_template(templates.record)    end
+function M.insert_struct()    insert_template(templates.struct)    end
+function M.insert_interface() insert_template(templates.interface) end
+function M.insert_enum()      insert_template(templates.enum)      end
 
-	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-	local class_lines = {
-		"internal sealed class " .. type_name,
-		"{",
-		"}",
-	}
-
-	local final_lines
-	if #lines == 0 or (#lines == 1 and lines[1] == "") then
-		final_lines = class_lines
-	else
-		-- Insert after namespace line if present, otherwise append.
-		local result = {}
-		local inserted = false
-		for i, line in ipairs(lines) do
-			table.insert(result, line)
-			if not inserted and line:match("^%s*namespace%s+.+;%s*$") then
-				if i < #lines and lines[i + 1] ~= "" then
-					table.insert(result, "")
-				end
-				for _, cl in ipairs(class_lines) do
-					table.insert(result, cl)
-				end
-				inserted = true
-			end
-		end
-		if not inserted then
-			if #result > 0 and result[#result] ~= "" then
-				table.insert(result, "")
-			end
-			for _, cl in ipairs(class_lines) do
-				table.insert(result, cl)
-			end
-		end
-		final_lines = result
-	end
-
-	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, final_lines)
-
-	for i, line in ipairs(final_lines) do
-		if line == "{" then
-			vim.api.nvim_win_set_cursor(0, { i, 0 })
-			vim.cmd("normal! o")
-			return
-		end
-	end
+-- Legacy: kept for backward compatibility.
+function M.insert_internal_sealed_class()
+	M.insert_class()
 end
 
 return M
