@@ -7,7 +7,7 @@ A Neovim plugin for inserting C# boilerplate with an interactive tabstop system.
 - Inserts class, record, struct, interface, and enum templates
 - Auto-inserts the correct file-scoped namespace from the nearest `.csproj`
 - Interactive tabstops: `<Tab>`/`<S-Tab>` to navigate, `<C-n>`/`<C-p>` to cycle choices
-- User commands (`:CsharpClass`, etc.) and configurable keymaps
+- User commands (`:CsharpClass`, etc.) with no keymaps registered by default
 - Zero dependencies — pure Lua, no external plugins required
 
 ## Requirements
@@ -20,29 +20,28 @@ A Neovim plugin for inserting C# boilerplate with an interactive tabstop system.
 
 ```lua
 {
-  "yourusername/csharp_template.nvim",
-  ft = "cs",
-  config = function()
-    require("csharp_template").setup()
-  end,
+  "adia-dev/csharp_template.nvim",
+  lazy = true,
+  keys = {
+    { "<leader>cn", function() require("csharp_template").insert_namespace() end, desc = "C#: insert namespace" },
+    { "<leader>cc", function() require("csharp_template").insert_class() end,     desc = "C#: insert class" },
+    { "<leader>cr", function() require("csharp_template").insert_record() end,    desc = "C#: insert record" },
+    { "<leader>cs", function() require("csharp_template").insert_struct() end,    desc = "C#: insert struct" },
+    { "<leader>ci", function() require("csharp_template").insert_interface() end, desc = "C#: insert interface" },
+    { "<leader>ce", function() require("csharp_template").insert_enum() end,      desc = "C#: insert enum" },
+  },
 }
 ```
 
 ### packer.nvim
 
 ```lua
-use {
-  "yourusername/csharp_template.nvim",
-  ft = "cs",
-  config = function()
-    require("csharp_template").setup()
-  end,
-}
+use { "adia-dev/csharp_template.nvim" }
 ```
 
 ## Configuration
 
-`setup()` is optional — the user commands (`:CsharpClass`, etc.) work without it. No keymaps are registered by default; you must pass them explicitly.
+No keymaps are registered by default — `setup()` is a no-op unless you explicitly pass a `keymaps` list. The recommended approach is to let your plugin manager handle keymaps (as shown above). If you prefer `setup()`:
 
 ```lua
 require("csharp_template").setup({
@@ -57,22 +56,7 @@ require("csharp_template").setup({
 })
 ```
 
-Keymaps are bound buffer-locally on `FileType=cs`. With lazy.nvim the idiomatic approach is to skip `setup()` entirely and use the `keys` spec for lazy-loading:</p>
-
-```lua
-{
-  dir = "~/Repositories/csharp_template",
-  lazy = true,
-  keys = {
-    { "<leader>cc", function() require("csharp_template").insert_class() end,     desc = "C#: insert class" },
-    { "<leader>cr", function() require("csharp_template").insert_record() end,    desc = "C#: insert record" },
-    { "<leader>cs", function() require("csharp_template").insert_struct() end,    desc = "C#: insert struct" },
-    { "<leader>ci", function() require("csharp_template").insert_interface() end, desc = "C#: insert interface" },
-    { "<leader>ce", function() require("csharp_template").insert_enum() end,      desc = "C#: insert enum" },
-    { "<leader>cn", function() require("csharp_template").insert_namespace() end, desc = "C#: insert namespace" },
-  },
-}
-```
+Keymaps provided via `setup()` are bound buffer-locally on `FileType=cs`.
 
 ## Usage
 
@@ -86,17 +70,6 @@ Keymaps are bound buffer-locally on `FileType=cs`. With lazy.nvim the idiomatic 
 | `:CsharpStruct` | Insert struct template |
 | `:CsharpInterface` | Insert interface template |
 | `:CsharpEnum` | Insert enum template |
-
-### Default keymaps (cs filetype)
-
-| Key | Action |
-|-----|--------|
-| `<leader>cn` | Insert namespace |
-| `<leader>cc` | Insert class |
-| `<leader>cr` | Insert record |
-| `<leader>cs` | Insert struct |
-| `<leader>ci` | Insert interface |
-| `<leader>ce` | Insert enum |
 
 ### Interactive session
 
