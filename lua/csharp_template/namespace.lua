@@ -105,10 +105,16 @@ function M.build(bufname)
 	return root_namespace .. "." .. table.concat(cleaned, ".")
 end
 
+-- Matches both "namespace Foo;" (file-scoped) and "namespace Foo" (block-scoped).
+local function is_ns_decl(line)
+	return line:match("^%s*namespace%s+[%w_%.]+%s*;?%s*$") ~= nil
+end
+
 -- Returns the namespace name string from the buffer, or nil.
+-- Works for both file-scoped (namespace Foo;) and block-scoped (namespace Foo).
 function M.get_from_buf(lines)
 	for _, line in ipairs(lines) do
-		local ns = line:match("^%s*namespace%s+(.+);%s*$")
+		local ns = line:match("^%s*namespace%s+([%w_%.]+)")
 		if ns then
 			return ns
 		end
@@ -116,10 +122,10 @@ function M.get_from_buf(lines)
 	return nil
 end
 
--- Returns true if the buffer already has a file-scoped namespace declaration.
+-- Returns true if the buffer already has a namespace declaration (either style).
 function M.exists_in_buf(lines)
 	for _, line in ipairs(lines) do
-		if line:match("^%s*namespace%s+.+;%s*$") then
+		if is_ns_decl(line) then
 			return true
 		end
 	end
@@ -129,30 +135,34 @@ end
 -- Returns the 1-indexed line number of the namespace declaration, or nil.
 function M.find_line(lines)
 	for i, line in ipairs(lines) do
-		if line:match("^%s*namespace%s+.+;%s*$") then
+		if is_ns_decl(line) then
 			return i
 		end
 	end
 	return nil
 end
 
--- Inserts "namespace <ns>;" at the top of lines if not already present.
+-- Inserts a namespace declaration at the top of lines if not already present.
+-- style: "file" (default) → "namespace Foo;" | "block" → "namespace Foo\n{\n}"
 -- Returns new lines table and whether a change was made.
-function M.insert_into_lines(lines, ns)
+function M.insert_into_lines(lines, ns, style)
 	if M.exists_in_buf(lines) then
 		return lines, false
 	end
 
-	local ns_line = "namespace " .. ns .. ";"
+	local ns_lines = style == "block"
+		and { "namespace " .. ns, "{", "}" }
+		or  { "namespace " .. ns .. ";" }
 
 	if #lines == 0 or (#lines == 1 and lines[1] == "") then
-		return { ns_line, "" }, true
+		local result = vim.list_extend({}, ns_lines)
+		table.insert(result, "")
+		return result, true
 	end
 
-	local result = { ns_line, "" }
-	for _, line in ipairs(lines) do
-		table.insert(result, line)
-	end
+	local result = vim.list_extend({}, ns_lines)
+	table.insert(result, "")
+	vim.list_extend(result, lines)
 	return result, true
 end
 

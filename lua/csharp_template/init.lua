@@ -4,14 +4,25 @@ local templates = require("csharp_template.templates")
 
 local M = {}
 
--- setup(opts) — optional, only needed if you want plugin-managed keymaps.
+-- Module-level config (mutated by setup).
+local config = {
+	namespace_style = "file", -- "file" → "namespace Foo;" | "block" → "namespace Foo\n{\n}"
+}
+
+-- setup(opts) — optional, only needed if you want plugin-managed keymaps or
+-- to change the namespace style.
 --
+-- opts.namespace_style: "file" (default) or "block"
 -- opts.keymaps: list of { lhs, fn, desc? } entries — no default list.
 --   fn is the name of a public method on this module (e.g. "insert_class").
 --   Keymaps are bound buffer-locally on FileType=cs.
 --   Omitting opts.keymaps (or calling setup with no args) registers nothing.
 M.setup = function(opts)
 	opts = opts or {}
+
+	if opts.namespace_style then
+		config.namespace_style = opts.namespace_style
+	end
 
 	if not opts.keymaps or #opts.keymaps == 0 then
 		return
@@ -68,15 +79,18 @@ function M.insert_namespace()
 				return
 			end
 			local ns_line_idx = ns_mod.find_line(lines)
-			vim.api.nvim_buf_set_lines(bufnr, ns_line_idx - 1, ns_line_idx, false, {
-				"namespace " .. expected .. ";",
-			})
+			-- Preserve the existing style (file-scoped keeps ;, block-scoped doesn't).
+			local existing = lines[ns_line_idx] or ""
+			local new_line = existing:match(";")
+				and ("namespace " .. expected .. ";")
+				or  ("namespace " .. expected)
+			vim.api.nvim_buf_set_lines(bufnr, ns_line_idx - 1, ns_line_idx, false, { new_line })
 			vim.notify("Namespace updated to: " .. expected, vim.log.levels.INFO)
 		end)
 		return
 	end
 
-	local new_lines, changed = ns_mod.insert_into_lines(lines, expected)
+	local new_lines, changed = ns_mod.insert_into_lines(lines, expected, config.namespace_style)
 	if not changed then
 		vim.notify("Namespace already exists", vim.log.levels.INFO)
 		return
@@ -95,7 +109,7 @@ local function prepare_buffer(bufnr, bufname)
 	if bufname ~= "" then
 		local ns = ns_mod.build(bufname)
 		if ns then
-			local new_lines, changed = ns_mod.insert_into_lines(lines, ns)
+			local new_lines, changed = ns_mod.insert_into_lines(lines, ns, config.namespace_style)
 			if changed then
 				vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, new_lines)
 				lines = new_lines
@@ -103,19 +117,37 @@ local function prepare_buffer(bufnr, bufname)
 		end
 	end
 
-	-- Find the namespace line to insert after it; fall back to last line.
 	local ns_line = ns_mod.find_line(lines)
 	if ns_line then
-		-- ns_line is 1-indexed. Skip blank lines immediately after the namespace,
-		-- then insert before the first non-blank line that follows.
-		local next_line = ns_line + 1
-		while next_line <= #lines and (lines[next_line] or "") == "" do
-			next_line = next_line + 1
+		local decl = lines[ns_line] or ""
+
+		if decl:match(";") then
+			-- File-scoped: insert after namespace + any trailing blank lines.
+			local next_line = ns_line + 1
+			while next_line <= #lines and (lines[next_line] or "") == "" do
+				next_line = next_line + 1
+			end
+			return next_line - 2
+		else
+			-- Block-scoped: find the opening { then insert just before the closing }.
+			local open_brace
+			for i = ns_line + 1, #lines do
+				local s = (lines[i] or ""):match("^%s*(.-)%s*$")
+				if s == "{" then
+					open_brace = i
+					break
+				elseif s ~= "" then
+					break
+				end
+			end
+			local search_from = open_brace or ns_line
+			for i = search_from + 1, #lines do
+				if (lines[i] or ""):match("^}%s*$") then
+					return i - 2 -- insert after the line before }
+				end
+			end
+			return (open_brace or ns_line) - 1 -- fallback: right after {
 		end
-		-- next_line is the 1-indexed first non-blank after ns (or #lines+1).
-		-- We insert AFTER the last blank, which is row (next_line - 1) in 0-indexed.
-		-- engine.insert adds lines after insert_row, so pass next_line - 2.
-		return next_line - 2
 	end
 
 	return #lines - 1 -- append at end (0-indexed last line)

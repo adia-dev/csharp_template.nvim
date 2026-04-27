@@ -51,6 +51,10 @@ No keymaps are registered by default — `setup()` is a no-op unless you explici
 
 ```lua
 require("csharp_template").setup({
+  -- "file" (default) → `namespace Foo;`  (C# 10+ file-scoped)
+  -- "block"          → `namespace Foo\n{\n}`  (traditional braced)
+  namespace_style = "file",
+
   keymaps = {
     { lhs = "<leader>cn", fn = "insert_namespace", desc = "C#: insert namespace" },
     { lhs = "<leader>cc", fn = "insert_class",     desc = "C#: insert class" },
@@ -63,6 +67,14 @@ require("csharp_template").setup({
 ```
 
 Keymaps provided via `setup()` are bound buffer-locally on `FileType=cs`.
+
+`namespace_style` can also be set without keymaps:
+
+```lua
+require("csharp_template").setup({ namespace_style = "block" })
+```
+
+When `namespace_style = "block"`, templates are inserted inside the braces. When using `:CsharpNamespace` to fix a mismatch the existing style (file-scoped or block-scoped) is preserved — only the name is updated.
 
 ## Usage
 
