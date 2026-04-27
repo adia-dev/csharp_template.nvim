@@ -84,17 +84,16 @@ local function prepare_buffer(bufnr, bufname)
 	-- Find the namespace line to insert after it; fall back to last line.
 	local ns_line = ns_mod.find_line(lines)
 	if ns_line then
-		-- ns_line is 1-indexed; engine expects 0-indexed insert_row.
-		-- We want to insert after the namespace line AND after any blank line
-		-- that may already follow it.
-		local insert_after = ns_line -- 0-indexed = ns_line (1-indexed) - 1 + 1 = ns_line
-		-- Skip existing blank lines right after the namespace.
-		while insert_after <= #lines and (lines[insert_after] or "") == "" do
-			insert_after = insert_after + 1
+		-- ns_line is 1-indexed. Skip blank lines immediately after the namespace,
+		-- then insert before the first non-blank line that follows.
+		local next_line = ns_line + 1
+		while next_line <= #lines and (lines[next_line] or "") == "" do
+			next_line = next_line + 1
 		end
-		-- insert_after is now the 1-indexed first non-blank line after ns,
-		-- so the 0-indexed row we insert AFTER is insert_after - 2.
-		return insert_after - 2
+		-- next_line is the 1-indexed first non-blank after ns (or #lines+1).
+		-- We insert AFTER the last blank, which is row (next_line - 1) in 0-indexed.
+		-- engine.insert adds lines after insert_row, so pass next_line - 2.
+		return next_line - 2
 	end
 
 	return #lines - 1 -- append at end (0-indexed last line)

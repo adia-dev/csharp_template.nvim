@@ -74,7 +74,9 @@ local function exit_session()
 	end
 
 	for _, saved in ipairs(s.saved_maps) do
-		vim.fn.mapset(saved.mode, false, saved.map)
+		if saved.map and next(saved.map) ~= nil then
+			vim.fn.mapset(saved.mode, false, saved.map)
+		end
 	end
 end
 
