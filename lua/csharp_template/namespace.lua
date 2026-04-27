@@ -105,6 +105,17 @@ function M.build(bufname)
 	return root_namespace .. "." .. table.concat(cleaned, ".")
 end
 
+-- Returns the namespace name string from the buffer, or nil.
+function M.get_from_buf(lines)
+	for _, line in ipairs(lines) do
+		local ns = line:match("^%s*namespace%s+(.+);%s*$")
+		if ns then
+			return ns
+		end
+	end
+	return nil
+end
+
 -- Returns true if the buffer already has a file-scoped namespace declaration.
 function M.exists_in_buf(lines)
 	for _, line in ipairs(lines) do

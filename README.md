@@ -138,6 +138,15 @@ Example: a file at `src/MyProject/Services/OrderService.cs` with a `.csproj` at 
 namespace MyProject.Services;
 ```
 
+### Namespace correction
+
+Running `:CsharpNamespace` (or its keymap) on a buffer that already has a namespace declaration compares it against the expected value derived from the `.csproj`:
+
+- **Correct** — notifies "Namespace is correct: …" and does nothing.
+- **Mismatch** — prompts `Fix namespace? Old.Name → New.Name`. Confirm with `Yes` to replace the declaration in place; `No` leaves the buffer untouched.
+
+This is useful after moving a file to a different directory.
+
 ## License
 
 MIT

@@ -46,15 +46,37 @@ function M.insert_namespace()
 		return
 	end
 
-	local namespace = ns_mod.build(bufname)
-	if not namespace then
+	local expected = ns_mod.build(bufname)
+	if not expected then
 		vim.notify("Could not determine C# namespace from nearest .csproj", vim.log.levels.WARN)
 		return
 	end
 
 	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-	local new_lines, changed = ns_mod.insert_into_lines(lines, namespace)
+	local current = ns_mod.get_from_buf(lines)
 
+	if current then
+		if current == expected then
+			vim.notify("Namespace is correct: " .. expected, vim.log.levels.INFO)
+			return
+		end
+
+		vim.ui.select({ "Yes", "No" }, {
+			prompt = string.format("Fix namespace? %s → %s", current, expected),
+		}, function(choice)
+			if choice ~= "Yes" then
+				return
+			end
+			local ns_line_idx = ns_mod.find_line(lines)
+			vim.api.nvim_buf_set_lines(bufnr, ns_line_idx - 1, ns_line_idx, false, {
+				"namespace " .. expected .. ";",
+			})
+			vim.notify("Namespace updated to: " .. expected, vim.log.levels.INFO)
+		end)
+		return
+	end
+
+	local new_lines, changed = ns_mod.insert_into_lines(lines, expected)
 	if not changed then
 		vim.notify("Namespace already exists", vim.log.levels.INFO)
 		return
