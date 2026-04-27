@@ -1,5 +1,11 @@
 # csharp_template.nvim
 
+
+
+https://github.com/user-attachments/assets/86c8f8e6-a2bf-4728-bfd4-4617ff5b7a59
+
+
+
 A Neovim plugin for inserting C# boilerplate with an interactive tabstop system. Tab through visibility, modifier, and type-keyword fields; cycle options without leaving normal mode.
 
 ## Features
